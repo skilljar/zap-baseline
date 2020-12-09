@@ -36,7 +36,7 @@ class ZapWebdriver:
         self.auth_first_submit_field_name = self._get_zap_param('auth.first_submit_field') or 'next'
         self.auth_excludeUrls = self._get_zap_param_list('auth.exclude') or list()
         self.auth_includeUrls = self._get_zap_param_list('auth.include') or list()
-        
+
     def configure_zap(self, zap, target):
         # Set a X-Scanner header so requests can be identified in logs
         zap.replacer.add_rule(description = 'Scanner', enabled = True, matchtype = 'REQ_HEADER', matchregex = False, matchstring = 'X-Scanner', replacement = "ZAP")
@@ -46,10 +46,10 @@ class ZapWebdriver:
 
         zap_common.context_name = context_name
         zap_common.context_id = context_id
-        
+
         # include everything below the target
         self.auth_includeUrls.append(target + '.*')
-       
+
         # include additional url's
         for include in self.auth_includeUrls:
             zap.context.include_in_context(context_name, include)
@@ -82,7 +82,7 @@ class ZapWebdriver:
         try:
             # setup the zap context
             self.configure_zap(zap, target)
-            
+
             if not self.auth_loginUrl:
                 logging.warning('No login URL provided - skipping authentication')
                 return
@@ -92,7 +92,7 @@ class ZapWebdriver:
 
             # login to the application
             self.auto_login(self.auth_loginUrl)
-            
+
             logging.info('Finding authentication cookies')
 
             # Create an empty session for session cookies
@@ -107,7 +107,7 @@ class ZapWebdriver:
             # Mark the session as active
             zap.httpsessions.set_active_session(target, 'auth-session')
             logging.info('Active session: %s', zap.httpsessions.active_session(target))
-            
+
             logging.info('Finding authentication headers')
 
             # try to find JWT tokens in LocalStorage and add them as Authorization header
@@ -137,7 +137,7 @@ class ZapWebdriver:
 
         # fill out the username field
         if self.auth_username:
-            self.find_and_fill_element(self.auth_username, 
+            self.find_and_fill_element(self.auth_username,
                                         self.auth_username_field_name,
                                         "input",
                                         "(//input[(@type='text' and contains(@name,'ser')) or @type='text'])[1]")
@@ -145,33 +145,33 @@ class ZapWebdriver:
         # fill out the password field
         if self.auth_password:
             try:
-                self.find_and_fill_element(self.auth_password, 
+                self.find_and_fill_element(self.auth_password,
                                             self.auth_password_field_name,
                                             "password",
                                             "//input[@type='password' or contains(@name,'ass')]")
             except:
                 logging.warning('Did not find the password field - clicking Next button and trying again')
 
-                # if the password field was not found, we probably need to submit to go to the password page 
+                # if the password field was not found, we probably need to submit to go to the password page
                 # login flow: username -> next -> password -> submit
                 self.find_and_click_element(self.auth_submit_field_name, "submit", "//*[@type='submit' or @type='button']")
 
-                self.find_and_fill_element(self.auth_password, 
+                self.find_and_fill_element(self.auth_password,
                                             self.auth_password_field_name,
                                             "password"
                                             "//input[@type='password' or contains(@name,'ass')]")
-        
+
         # submit
         self.find_and_click_element(self.auth_submit_field_name, "submit", "//*[@type='submit' or @type='button']")
-        
+
         # wait for the page to load
         time.sleep(5)
-        
+
     def find_and_click_element(self, name, element_type, xpath):
         element = self.find_element(name, element_type, xpath)
         element.click()
         logging.info('Clicked the %s element', name)
-        
+
     def find_and_fill_element(self, value, name, element_type, xpath):
         element = self.find_element(name, element_type, xpath)
         element.clear()
@@ -181,27 +181,25 @@ class ZapWebdriver:
     # 1. Find by ID attribute (case insensitive)
     # 2. Find by Name attribute (case insensitive)
     # 3. Find by xpath as fallback
-    def find_element(self, name_or_xpath, element_type, xpath):
+    def find_element(self, selector, element_type, xpath):
         element = None
-        logging.info('Trying to find element %s', name_or_xpath)
+        logging.info('Trying to find element %s', selector)
 
-        if name_or_xpath:
+        if selector:
             try:
-                path = self.build_xpath(name_or_xpath, "id", element_type)
-                element = self.driver.find_element_by_xpath(path)
-                logging.info('Found element %s by id', name_or_xpath)
+                element = self.driver.find_element_by_id(selector)
+                logging.info('Found element %s by id', selector)
             except NoSuchElementException:
                 try:
-                    path = self.build_xpath(name_or_xpath, "name", element_type)
-                    element = self.driver.find_element_by_xpath(path)
-                    logging.info('Found element %s by name', name_or_xpath)
+                    element = self.driver.find_element_by_name(selector)
+                    logging.info('Found element %s by name', selector)
                 except NoSuchElementException:
                     try:
-                        element = self.driver.find_element_by_xpath(name_or_xpath)
-                        logging.info('Found element %s by xpath (name)', name_or_xpath)
+                        element = self.driver.find_element_by_xpath(selector)
+                        logging.info('Found element %s by xpath (name)', selector)
                     except NoSuchElementException:
-                        logging.warning('Could not find element %s by id, name or xpath (name)', name_or_xpath)
-        
+                        logging.warning('Could not find element %s by id, name or xpath (name)', selector)
+
         if xpath and not element:
             element = self.driver.find_element_by_xpath(xpath)
             logging.info('Found element %s by xpath', xpath)
@@ -246,7 +244,7 @@ class ZapWebdriver:
                 value = list(filter(None, param[len(key) + 1:].split(',')))
                 logging.info('_get_zap_param %s: %s', key, value)
                 return value
-        
+
     def _get_zap_param_boolean(self, key):
         for param in self.extra_zap_params:
             if param.find(key) > -1:
